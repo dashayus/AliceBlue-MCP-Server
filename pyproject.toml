@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=45.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aliceblue-mcp"
+version = "1.0.0"
+description = "AliceBlue Trading MCP Server - Interact with your AliceBlue trading account through Claude AI"
+authors = [
+    { name = "ayushman", email = "ayushmandash95@gmail.com" },
+]
+readme = "README.md"
+license = { text = "MIT" }
+keywords = ["aliceblue", "trading", "mcp", "stocks", "india"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "fastmcp>=0.1.0",
+    "requests>=2.25.0",
+]
+
+[project.urls]
+Homepage = "https://github.dev/dashayus/AliceBlue-MCP-Server"
+Repository = "https://github.dev/dashayus/AliceBlue-MCP-Server"
+Issues = "https://github.dev/dashayus/AliceBlue-MCP-Server/issues"
+
+[project.scripts]
+aliceblue-mcp = "server:main"

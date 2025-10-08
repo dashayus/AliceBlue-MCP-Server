@@ -20,20 +20,23 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -e .
           
-      - name: Validate smithery.yaml
+      - name: Validate build files
         run: |
+          if [ ! -f "pyproject.toml" ]; then
+            echo "❌ pyproject.toml file is missing!"
+            exit 1
+          fi
           if [ ! -f "smithery.yaml" ]; then
             echo "❌ smithery.yaml file is missing!"
             exit 1
           fi
-          echo "✅ smithery.yaml found"
+          echo "✅ All required build files found"
           
       - name: Test server startup
         run: |
-          timeout 10s python server.py || exit 0
-          echo "✅ Server imports successfully"
+          timeout 10s python -c "import server; print('✅ Server imports successfully')" || exit 0
           
       - name: Deploy to Smithery
         uses: smithery-ai/deploy-action@v1

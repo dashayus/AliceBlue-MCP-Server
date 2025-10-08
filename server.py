@@ -739,6 +739,10 @@ def get_limits()-> dict:
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
-    
-if __name__ == "__main__":
+
+def main():
+    """Main function to run the MCP server"""
     mcp.run()
+
+if __name__ == "__main__":
+    main()

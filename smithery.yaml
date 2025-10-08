@@ -5,7 +5,7 @@ version: "1.0.0"
 runtime: python
 
 build:
-  command: "echo 'No build needed for Python'"
+  command: "pip install ."
 
 startCommand:
   type: stdio
