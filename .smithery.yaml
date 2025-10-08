@@ -1,0 +1,12 @@
+name: aliceblue-trading-mcp
+description: AliceBlue Trading Integration - Manage your stocks, mutual funds, and trading orders seamlessly
+version: 1.0.0
+
+startCommand:
+  type: stdio
+  config:
+    command: python
+    args:
+      - server.py
+
+environmentVariables: []

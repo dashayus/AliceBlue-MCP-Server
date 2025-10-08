@@ -1,0 +1,32 @@
+name: Deploy to Smithery
+
+on:
+  push:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install fastmcp requests python-dotenv
+          
+      - name: Test server
+        run: |
+          python -c "import server; print('✅ Server imports successfully')"
+          
+      - name: Deploy to Smithery
+        uses: smithery-ai/deploy-action@v1
+        with:
+          smithery-token: ${{ secrets.SMITHERY_TOKEN }}
