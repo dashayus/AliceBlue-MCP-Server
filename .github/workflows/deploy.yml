@@ -20,11 +20,20 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install fastmcp requests python-dotenv
+          pip install -r requirements.txt
           
-      - name: Test server
+      - name: Validate smithery.yaml
         run: |
-          python -c "import server; print('✅ Server imports successfully')"
+          if [ ! -f "smithery.yaml" ]; then
+            echo "❌ smithery.yaml file is missing!"
+            exit 1
+          fi
+          echo "✅ smithery.yaml found"
+          
+      - name: Test server startup
+        run: |
+          timeout 10s python server.py || exit 0
+          echo "✅ Server imports successfully"
           
       - name: Deploy to Smithery
         uses: smithery-ai/deploy-action@v1

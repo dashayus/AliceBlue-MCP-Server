@@ -1,0 +1,36 @@
+name: aliceblue-trading-mcp
+description: AliceBlue Trading Integration - Manage your stocks, mutual funds, and trading orders seamlessly
+version: 1.0.0
+
+startCommand:
+  type: stdio
+  config:
+    command: python
+    args:
+      - server.py
+
+# Define the configuration fields users need to provide
+configuration:
+  fields:
+    - name: user_id
+      description: "Your AliceBlue User ID (get this after login)"
+      type: string
+      required: false
+      
+    - name: app_code  
+      description: "Your AliceBlue APP_CODE from developer portal"
+      type: string
+      required: true
+      
+    - name: api_secret
+      description: "Your AliceBlue API_SECRET from developer portal"
+      type: string
+      required: true
+      secret: true
+      
+    - name: auth_code
+      description: "Temporary auth code from login redirect"
+      type: string
+      required: false
+
+environmentVariables: []

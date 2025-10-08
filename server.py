@@ -1,5 +1,3 @@
-import os
-import sys
 import json
 import hashlib
 import requests
@@ -21,32 +19,25 @@ def get_login_url(app_code: str, redirect_url: str = "https://smithery.ai/callba
     
     Args:
         app_code: Your AliceBlue APP_CODE
-        redirect_url: Redirect URL after login (default: Smithery callback)
+        redirect_url: Redirect URL after login
     
     Returns:
         str: Login URL and instructions
     """
     login_url = f"{BASE_URL}/?appcode={app_code}&redirect_url={redirect_url}"
     
-    instructions = f"""
-## 🔗 AliceBlue Authentication Instructions
+    return f"""
+## 🔗 AliceBlue Login URL
 
-### 1. Open Login URL:
+Open this URL in your browser to start authentication:
 {login_url}
 
-### 2. Complete AliceBlue Login:
-- Enter your AliceBlue credentials
-- Complete 2FA if enabled
-
-### 3. Get Authentication Code:
-After successful login, you'll be redirected. In the URL, look for:
-- **userId** - Your AliceBlue user ID
-- **authCode** - Temporary authorization code
-
-### 4. Next Steps:
-Use these values with `generate_checksum` tool along with your API_SECRET.
+## 📝 Instructions:
+1. Open the above URL
+2. Login with your AliceBlue credentials
+3. After login, copy the 'userId' and 'authCode' from the redirect URL
+4. Use these with generate_checksum tool
 """
-    return instructions
 
 @mcp.tool()
 def generate_checksum(user_id: str, auth_code: str, api_secret: str) -> dict:
@@ -193,5 +184,4 @@ def get_margins(user_session: str) -> dict:
         return {"error": f"Failed to get margins: {str(e)}"}
 
 if __name__ == "__main__":
-    # Run the server
     mcp.run()
