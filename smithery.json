@@ -3,39 +3,28 @@
   "description": "Interact with your AliceBlue trading account directly through Claude AI. Manage your stocks, mutual funds, and trading orders seamlessly.",
   "homepage": "https://aliceblueonline.com",
   "repository": "https://github.com/yourusername/aliceblue-mcp",
-  "keywords": ["aliceblue", "trading", "stocks", "mcp", "india", "broker"],
+  "keywords": ["aliceblue", "trading", "stocks", "mcp", "india", "broker", "portfolio"],
   "tools": [
-    {
-      "name": "get_login_url",
-      "description": "Get AliceBlue login URL for authentication"
-    },
-    {
-      "name": "generate_checksum",
-      "description": "Generate checksum for AliceBlue authentication"
-    },
-    {
-      "name": "complete_login",
-      "description": "Complete AliceBlue login process"
-    },
-    {
-      "name": "get_profile",
-      "description": "Get user profile information"
-    },
-    {
-      "name": "get_holdings",
-      "description": "Get current stock holdings"
-    },
-    {
-      "name": "get_positions",
-      "description": "Get current trading positions"
-    },
-    {
-      "name": "get_order_book",
-      "description": "Get order book"
-    },
-    {
-      "name": "get_margins",
-      "description": "Get account margins"
-    }
+    {"name": "check_and_authenticate", "description": "Check if AliceBlue session is active"},
+    {"name": "initiate_login", "description": "Login and create AliceBlue session"},
+    {"name": "close_session", "description": "Close current session"},
+    {"name": "get_profile", "description": "Get user profile details"},
+    {"name": "get_holdings", "description": "Get stock holdings"},
+    {"name": "get_positions", "description": "Get trading positions"},
+    {"name": "get_positions_sqroff", "description": "Square off positions"},
+    {"name": "get_position_conversion", "description": "Convert position types"},
+    {"name": "place_order", "description": "Place new order"},
+    {"name": "get_order_book", "description": "Get order book"},
+    {"name": "get_order_history", "description": "Get order history"},
+    {"name": "get_modify_order", "description": "Modify existing order"},
+    {"name": "get_cancel_order", "description": "Cancel order"},
+    {"name": "get_trade_book", "description": "Get trade book"},
+    {"name": "get_order_margin", "description": "Check order margin"},
+    {"name": "get_exit_bracket_order", "description": "Exit bracket order"},
+    {"name": "get_place_gtt_order", "description": "Place GTT order"},
+    {"name": "get_gtt_order_book", "description": "Get GTT order book"},
+    {"name": "get_modify_gtt_order", "description": "Modify GTT order"},
+    {"name": "get_cancel_gtt_order", "description": "Cancel GTT order"},
+    {"name": "get_limits", "description": "Get account limits"}
   ]
 }
