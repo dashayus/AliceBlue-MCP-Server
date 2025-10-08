@@ -2,7 +2,7 @@
   "name": "AliceBlue Trading MCP",
   "description": "Interact with your AliceBlue trading account directly through Claude AI. Manage your stocks, mutual funds, and trading orders seamlessly.",
   "homepage": "https://aliceblueonline.com",
-  "repository": "https://github.com/yourusername/aliceblue-mcp",
+  "repository": "https://github.dev/dashayus/AliceBlue-MCP-Server",
   "keywords": ["aliceblue", "trading", "stocks", "mcp", "india", "broker", "portfolio"],
   "tools": [
     {"name": "check_and_authenticate", "description": "Check if AliceBlue session is active"},
