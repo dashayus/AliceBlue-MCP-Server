@@ -3,6 +3,7 @@ from smithery.decorators import smithery
 from pydantic import BaseModel, Field
 import requests
 import hashlib
+import uvicorn
 import os
 
 BASE_URL = "https://a3.aliceblueonline.com"
@@ -171,18 +172,9 @@ def create_server():
 
     return server
 
-# For local testing
+# For HTTP server in container
+app = create_server().app
+
 if __name__ == "__main__":
-    import asyncio
-    from mcp.server.stdio import stdio_server
-    
-    async def main():
-        server = create_server()
-        async with stdio_server() as (read_stream, write_stream):
-            await server.run(
-                read_stream=read_stream,
-                write_stream=write_stream,
-                initialization_options={}
-            )
-    
-    asyncio.run(main())
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
