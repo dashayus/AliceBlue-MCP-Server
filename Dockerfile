@@ -1,16 +1,15 @@
-FROM python:3.12-slim
+FROM python:3.12-alpine
 
 WORKDIR /app
 
-# Copy requirements and install dependencies
+# Install system dependencies
+RUN apk add --no-cache gcc musl-dev linux-headers
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source code
 COPY src/ ./src/
 
-# Set Python path
 ENV PYTHONPATH=/app/src
 
-# Run the server
 CMD ["python", "-m", "aliceblue_server.server"]
