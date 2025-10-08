@@ -3,7 +3,7 @@ from smithery.decorators import smithery
 from pydantic import BaseModel, Field
 import requests
 import hashlib
-from typing import Optional, Union
+import os
 
 BASE_URL = "https://a3.aliceblueonline.com"
 
@@ -170,3 +170,19 @@ def create_server():
             return f"Error getting limits: {str(e)}"
 
     return server
+
+# For local testing
+if __name__ == "__main__":
+    import asyncio
+    from mcp.server.stdio import stdio_server
+    
+    async def main():
+        server = create_server()
+        async with stdio_server() as (read_stream, write_stream):
+            await server.run(
+                read_stream=read_stream,
+                write_stream=write_stream,
+                initialization_options={}
+            )
+    
+    asyncio.run(main())
