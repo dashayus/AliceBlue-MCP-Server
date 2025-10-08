@@ -1,5 +1,5 @@
 name: aliceblue-trading-mcp
-description: AliceBlue Trading Integration - Manage your stocks and trading orders
+description: AliceBlue Trading Integration
 version: "1.0.0"
 
 runtime: python
@@ -16,14 +16,12 @@ configuration:
       description: "Your AliceBlue User ID"
       type: string
       required: true
-      
-    - name: ALICE_AUTH_CODE  
-      description: "Your AliceBlue Auth Code from login"
+    - name: ALICE_AUTH_CODE
+      description: "Your AliceBlue Auth Code"
       type: string
       required: true
-      
     - name: ALICE_API_SECRET
-      description: "Your AliceBlue API Secret from developer portal"
+      description: "Your AliceBlue API Secret"
       type: string
       required: true
       secret: true

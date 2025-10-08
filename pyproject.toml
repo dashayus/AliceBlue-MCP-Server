@@ -6,16 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "aliceblue-mcp"
 version = "1.0.0"
 description = "AliceBlue Trading MCP Server"
-authors = [
-    { name = "Your Name", email = "your.email@example.com" },
-]
-readme = "README.md"
-license = { text = "MIT" }
 requires-python = ">=3.8"
 dependencies = [
     "fastmcp>=0.1.0",
     "requests>=2.25.0",
 ]
-
-[project.urls]
-Homepage = "https://github.dev/dashayus/AliceBlue-MCP-Server"
