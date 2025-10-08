@@ -2,7 +2,7 @@ name: aliceblue-trading-mcp
 description: AliceBlue Trading Integration
 version: "1.0.0"
 
-runtime: python
+runtime: docker
 
 startCommand:
   type: stdio

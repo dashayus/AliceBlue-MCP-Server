@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "aliceblue-mcp"
 version = "1.0.0"
 description = "AliceBlue Trading MCP Server"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "fastmcp>=0.1.0",
     "requests>=2.25.0",
