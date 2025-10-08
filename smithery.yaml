@@ -1,11 +1,8 @@
 name: aliceblue-trading-mcp
-description: AliceBlue Trading Integration - Manage your stocks, mutual funds, and trading orders seamlessly
+description: AliceBlue Trading Integration - Manage your stocks and trading orders
 version: "1.0.0"
 
 runtime: python
-
-build:
-  command: "pip install ."
 
 startCommand:
   type: stdio
