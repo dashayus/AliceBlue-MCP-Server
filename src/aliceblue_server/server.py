@@ -1,9 +1,12 @@
+# server.py
 from pydantic import BaseModel, Field
 from mcp.server.fastmcp import Context, FastMCP
 from smithery.decorators import smithery
 import requests
 import hashlib
+import time
 from typing import Optional, Union
+import json
 
 BASE_URL = "https://a3.aliceblueonline.com"
 
@@ -27,69 +30,136 @@ def create_server():
             self.api_secret = api_secret
             self.user_session = None
             self.headers = None
+            self.last_authentication = None
             self.authenticate()
 
+        def _make_request(self, method, url, **kwargs):
+            """Generic request handler with retry logic"""
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    # Ensure headers are set
+                    if self.headers is None:
+                        self.authenticate()
+                    
+                    # Add timeout if not specified
+                    if 'timeout' not in kwargs:
+                        kwargs['timeout'] = 30
+                    
+                    # Make the request
+                    response = requests.request(method, url, **kwargs)
+                    
+                    # Check if session expired
+                    if response.status_code == 401:
+                        if attempt < max_retries - 1:
+                            self.authenticate()  # Re-authenticate
+                            if 'headers' in kwargs:
+                                kwargs['headers'] = self.headers
+                            continue
+                        else:
+                            raise Exception("Session expired and re-authentication failed")
+                    
+                    return response
+                    
+                except requests.exceptions.ConnectionError:
+                    if attempt < max_retries - 1:
+                        time.sleep(1)  # Wait before retry
+                        continue
+                    else:
+                        raise Exception("Connection error: Unable to reach AliceBlue API")
+                except requests.exceptions.Timeout:
+                    if attempt < max_retries - 1:
+                        time.sleep(1)
+                        continue
+                    else:
+                        raise Exception("Request timeout: AliceBlue API is not responding")
+            
+            raise Exception("Max retries exceeded")
+
         def authenticate(self):
-            # Prepare checksum
-            raw_string = f"{self.user_id}{self.auth_code}{self.api_secret}"
-            checksum = hashlib.sha256(raw_string.encode()).hexdigest()
+            """Authenticate with AliceBlue API"""
+            try:
+                # Prepare checksum
+                raw_string = f"{self.user_id}{self.auth_code}{self.api_secret}"
+                checksum = hashlib.sha256(raw_string.encode()).hexdigest()
 
-            # API request
-            url = f"{BASE_URL}/open-api/od/v1/vendor/getUserDetails"
-            payload = {"checkSum": checksum} 
+                # API request
+                url = f"{BASE_URL}/open-api/od/v1/vendor/getUserDetails"
+                payload = {"checkSum": checksum} 
 
-            res = requests.post(url, json=payload)
+                response = requests.post(url, json=payload, timeout=30)
+                
+                # Handle API response
+                if response.status_code != 200:
+                    raise Exception(f"API Error {response.status_code}: {response.text}")
 
-            # Handle API response
-            if res.status_code != 200:
-                raise Exception(f"API Error: {res.text}")
-
-            data = res.json()
-            if data.get("stat") == "Ok":
-                self.user_session = data["userSession"]
-                self.headers = {
-                    "Authorization": f"Bearer {self.user_session}"
-                }
-            else:
-                raise Exception(f"Authentication failed: {data}")
+                data = response.json()
+                if data.get("stat") == "Ok":
+                    self.user_session = data["userSession"]
+                    self.headers = {
+                        "Authorization": f"Bearer {self.user_session}",
+                        "Content-Type": "application/json"
+                    }
+                    self.last_authentication = time.time()
+                    print(f"✅ Authenticated successfully. Session: {self.user_session}")
+                else:
+                    error_msg = data.get("message", "Unknown authentication error")
+                    raise Exception(f"Authentication failed: {error_msg}")
+                    
+            except requests.exceptions.ConnectionError:
+                raise Exception("Cannot connect to AliceBlue API. Check your internet connection.")
+            except requests.exceptions.Timeout:
+                raise Exception("AliceBlue API timeout. Please try again.")
+            except json.JSONDecodeError:
+                raise Exception(f"Invalid JSON response from API: {response.text}")
+            except Exception as e:
+                raise Exception(f"Authentication error: {str(e)}")
 
         def get_session(self):
+            """Get current session ID"""
             return self.user_session
         
         def get_profile(self):
+            """Get user profile"""
             url = f"{BASE_URL}/open-api/od/v1/profile"
-            res = requests.get(url, headers=self.headers)
+            response = self._make_request("GET", url, headers=self.headers)
             
-            if res.status_code != 200:
-                raise Exception(f"Profile Error {res.status_code}: {res.text}")
+            if response.status_code != 200:
+                raise Exception(f"Profile Error {response.status_code}: {response.text}")
+            
             try:
-                return res.json()
-            except Exception:
-                raise Exception(f"Non-JSON response: {res.text}")
+                return response.json()
+            except json.JSONDecodeError:
+                raise Exception(f"Non-JSON response: {response.text}")
         
         def get_holdings(self):
+            """Get user holdings"""
             url = f"{BASE_URL}/open-api/od/v1/holdings/CNC"
-            res = requests.get(url, headers=self.headers)
+            response = self._make_request("GET", url, headers=self.headers)
             
-            if res.status_code != 200:
-                raise Exception(f"Holding Error {res.status_code}: {res.text}")
+            if response.status_code != 200:
+                raise Exception(f"Holding Error {response.status_code}: {response.text}")
+            
             try:
-                return res.json()
-            except Exception:
-                raise Exception(f"Non-JSON response: {res.text}")
+                return response.json()
+            except json.JSONDecodeError:
+                raise Exception(f"Non-JSON response: {response.text}")
         
         def get_positions(self):
+            """Get user positions"""
             url = f"{BASE_URL}/open-api/od/v1/positions"
-            res = requests.get(url, headers=self.headers)
+            response = self._make_request("GET", url, headers=self.headers)
             
-            if res.status_code != 200:
-                raise Exception(f"Position Error {res.status_code}: {res.text}")
+            if response.status_code != 200:
+                raise Exception(f"Position Error {response.status_code}: {response.text}")
+            
             try:
-                return res.json()
-            except Exception:
-                raise Exception(f"Non-JSON response: {res.text}")
+                return response.json()
+            except json.JSONDecodeError:
+                raise Exception(f"Non-JSON response: {response.text}")
         
         def get_positions_sqroff(self, exch, symbol, qty, product, transaction_type):
+            """Square off positions"""
             url = f"{BASE_URL}/open-api/od/v1/orders/positions/sqroff"
             payload = {
                 "exch": exch,
@@ -98,16 +168,18 @@ def create_server():
                 "product": product,
                 "transaction_type": transaction_type
             }
-            res = requests.post(url, headers=self.headers, json=payload)
+            response = self._make_request("POST", url, headers=self.headers, json=payload)
             
-            if res.status_code != 200:
-                raise Exception(f"Position Square Off Error {res.status_code}: {res.text}")
+            if response.status_code != 200:
+                raise Exception(f"Position Square Off Error {response.status_code}: {response.text}")
+            
             try:
-                return res.json()
-            except Exception:
-                raise Exception(f"Non-JSON response: {res.text}")
+                return response.json()
+            except json.JSONDecodeError:
+                raise Exception(f"Non-JSON response: {response.text}")
 
-        def get_position_conversion(self, exchange, validity, prevProduct, product, quantity, tradingSymbol, transactionType,orderSource):
+        def get_position_conversion(self, exchange, validity, prevProduct, product, quantity, tradingSymbol, transactionType, orderSource):
+            """Position conversion"""
             url = f"{BASE_URL}/open-api/od/v1/conversion"
             payload = {
                 "exchange": exchange,
@@ -117,23 +189,23 @@ def create_server():
                 "quantity": quantity,
                 "tradingSymbol": tradingSymbol,
                 "transactionType": transactionType,
-                "orderSource":orderSource
+                "orderSource": orderSource
             }
-            res = requests.post(url, headers=self.headers, json=payload)
+            response = self._make_request("POST", url, headers=self.headers, json=payload)
             
-            if res.status_code != 200:
-                raise Exception(f"Position Conversion Error {res.status_code}: {res.text}")
+            if response.status_code != 200:
+                raise Exception(f"Position Conversion Error {response.status_code}: {response.text}")
+            
             try:
-                return res.json()
-            except Exception:
-                raise Exception(f"Non-JSON response: {res.text}")
+                return response.json()
+            except json.JSONDecodeError:
+                raise Exception(f"Non-JSON response: {response.text}")
         
-        def get_place_order(self,instrument_id: str, exchange: str, transaction_type: str, quantity: int, order_type: str, product: str,
+        def get_place_order(self, instrument_id: str, exchange: str, transaction_type: str, quantity: int, order_type: str, product: str,
                         order_complexity: str, price: float, validity: str, sl_leg_price: Optional[float] = None,
                         target_leg_price: Optional[float] = None, sl_trigger_price: Optional[float] = None, trailing_sl_amount: Optional[float] = None,
-                        disclosed_quantity: int = 0,source: str = "API"):
+                        disclosed_quantity: int = 0, source: str = "API"):
             """Place an order with Alice Blue API."""
-
             url = f"{BASE_URL}/open-api/od/v1/orders/placeorder"
 
             payload = [{
@@ -159,41 +231,46 @@ def create_server():
             if trailing_sl_amount is not None:
                 payload[0]["trailingSlAmount"] = trailing_sl_amount
 
-            res = requests.post(url, headers=self.headers, json=payload)
+            response = self._make_request("POST", url, headers=self.headers, json=payload)
 
-            if res.status_code != 200:
-                raise Exception(f"Order Place Error {res.status_code}: {res.text}")
+            if response.status_code != 200:
+                raise Exception(f"Order Place Error {response.status_code}: {response.text}")
+            
             try:
-                return res.json()
-            except Exception:
-                raise Exception(f"Non-JSON response: {res.text}")
+                return response.json()
+            except json.JSONDecodeError:
+                raise Exception(f"Non-JSON response: {response.text}")
         
         def get_order_book(self):
+            """Get order book"""
             url = f"{BASE_URL}/open-api/od/v1/orders/book"
-            res = requests.get(url, headers=self.headers)
+            response = self._make_request("GET", url, headers=self.headers)
             
-            if res.status_code != 200:
-                raise Exception(f"Order Book Error {res.status_code}: {res.text}")
+            if response.status_code != 200:
+                raise Exception(f"Order Book Error {response.status_code}: {response.text}")
+            
             try:
-                return res.json()
-            except Exception:
-                raise Exception(f"Non-JSON response: {res.text}")
+                return response.json()
+            except json.JSONDecodeError:
+                raise Exception(f"Non-JSON response: {response.text}")
         
         def get_order_history(self, brokerOrderId: str):
+            """Get order history"""
             url = f"{BASE_URL}/open-api/od/v1/orders/history"
             payload = {"brokerOrderId": brokerOrderId}
-            res = requests.post(url, headers=self.headers, json = payload)
+            response = self._make_request("POST", url, headers=self.headers, json=payload)
             
-            if res.status_code != 200:
-                raise Exception(f"Order History Error {res.status_code}: {res.text}")
+            if response.status_code != 200:
+                raise Exception(f"Order History Error {response.status_code}: {response.text}")
+            
             try:
-                return res.json()
-            except Exception:
-                raise Exception(f"Non-JSON response: {res.text}")
+                return response.json()
+            except json.JSONDecodeError:
+                raise Exception(f"Non-JSON response: {response.text}")
         
-        def get_modify_order(self, brokerOrderId:str, validity: str , quantity: Optional[int] = None,price: Optional[Union[int, float]] = None, 
-                            triggerPrice: Optional[float] = None
-                            ):
+        def get_modify_order(self, brokerOrderId: str, validity: str, quantity: Optional[int] = None, 
+                            price: Optional[Union[int, float]] = None, triggerPrice: Optional[float] = None):
+            """Modify order"""
             url = f"{BASE_URL}/open-api/od/v1/orders/modify"
             payload = [{
                 "brokerOrderId": brokerOrderId,
@@ -202,41 +279,47 @@ def create_server():
                 "triggerPrice": triggerPrice if triggerPrice else "",
                 "validity": validity.upper()
             }]
-            res = requests.post(url, headers=self.headers, json=payload)
-            if res.status_code != 200:
-                raise Exception(f"Order Modify Error {res.status_code}: {res.text}")
+            response = self._make_request("POST", url, headers=self.headers, json=payload)
+            
+            if response.status_code != 200:
+                raise Exception(f"Order Modify Error {response.status_code}: {response.text}")
 
             try:
-                return res.json()
-            except Exception:
-                raise Exception(f"Non-JSON response: {res.text}")
+                return response.json()
+            except json.JSONDecodeError:
+                raise Exception(f"Non-JSON response: {response.text}")
         
-        def get_cancel_order(self, brokerOrderId):
-            """Cancel an order."""
+        def get_cancel_order(self, brokerOrderId: str):
+            """Cancel an order"""
             url = f"{BASE_URL}/open-api/od/v1/orders/cancel"
-            payload = {"brokerOrderId":brokerOrderId}
-            res = requests.post(url, headers=self.headers, json=payload)
+            payload = {"brokerOrderId": brokerOrderId}
+            response = self._make_request("POST", url, headers=self.headers, json=payload)
             
-            if res.status_code != 200:
-                raise Exception(f"Order Cancel Error {res.status_code}: {res.text}")
+            if response.status_code != 200:
+                raise Exception(f"Order Cancel Error {response.status_code}: {response.text}")
+            
             try:
-                return res.json()
-            except Exception:
-                raise Exception(f"Non-JSON response: {res.text}")
+                return response.json()
+            except json.JSONDecodeError:
+                raise Exception(f"Non-JSON response: {response.text}")
         
         def get_trade_book(self):
+            """Get trade book"""
             url = f"{BASE_URL}/open-api/od/v1/orders/trades"
-            res = requests.get(url, headers=self.headers)
+            response = self._make_request("GET", url, headers=self.headers)
             
-            if res.status_code != 200:
-                raise Exception(f"Order Cancel Error {res.status_code}: {res.text}")
+            if response.status_code != 200:
+                raise Exception(f"Trade Book Error {response.status_code}: {response.text}")
+            
             try:
-                return res.json()
-            except Exception:
-                raise Exception(f"Non-JSON response: {res.text}")
+                return response.json()
+            except json.JSONDecodeError:
+                raise Exception(f"Non-JSON response: {response.text}")
         
-        def get_order_margin(self, exchange:str, instrumentId:str, transactionType:str, quantity:int, product:str, 
-                            orderComplexity:str, orderType:str, validity:str, price=0.0, slTriggerPrice: Optional[Union[int, float]] = None):
+        def get_order_margin(self, exchange: str, instrumentId: str, transactionType: str, quantity: int, product: str, 
+                            orderComplexity: str, orderType: str, validity: str, price: float = 0.0, 
+                            slTriggerPrice: Optional[Union[int, float]] = None):
+            """Check order margin"""
             url = f"{BASE_URL}/open-api/od/v1/orders/checkMargin"
             payload = [{
                 "exchange": exchange.upper(),
@@ -250,35 +333,37 @@ def create_server():
                 "validity": validity.upper(),
                 "slTriggerPrice": slTriggerPrice if slTriggerPrice is not None else ""
             }]
-            res = requests.post(url, headers=self.headers, json=payload)
+            response = self._make_request("POST", url, headers=self.headers, json=payload)
             
-            if res.status_code != 200:
-                raise Exception(f"Order Cancel Error {res.status_code}: {res.text}")
+            if response.status_code != 200:
+                raise Exception(f"Order Margin Error {response.status_code}: {response.text}")
+            
             try:
-                return res.json()
-            except Exception:
-                raise Exception(f"Non-JSON response: {res.text}")
+                return response.json()
+            except json.JSONDecodeError:
+                raise Exception(f"Non-JSON response: {response.text}")
         
         def get_exit_bracket_order(self, brokerOrderId: str, orderComplexity: str):
+            """Exit bracket order"""
             url = f"{BASE_URL}/open-api/od/v1/orders/exit/sno"
             payload = [{
                 "brokerOrderId": brokerOrderId,
                 "orderComplexity": orderComplexity.upper()
             }]
-            res = requests.post(url, headers=self.headers, json=payload)
+            response = self._make_request("POST", url, headers=self.headers, json=payload)
             
-            if res.status_code != 200:
-                raise Exception(f"Exit Bracket Order Error {res.status_code}: {res.text}")
+            if response.status_code != 200:
+                raise Exception(f"Exit Bracket Order Error {response.status_code}: {response.text}")
             
             try:
-                return res.json()
-            except Exception:
-                raise Exception(f"Non-JSON response: {res.text}")
+                return response.json()
+            except json.JSONDecodeError:
+                raise Exception(f"Non-JSON response: {response.text}")
         
         def get_place_gtt_order(self, tradingSymbol: str, exchange: str, transactionType: str, orderType: str,
                                 product: str, validity: str, quantity: int, price: float, orderComplexity: str, 
                                 instrumentId: str, gttType: str, gttValue: float):
-            
+            """Place GTT order"""
             url = f"{BASE_URL}/open-api/od/v1/orders/gtt/execute"
             
             payload = {
@@ -295,37 +380,38 @@ def create_server():
                 "gttType": gttType.upper(),
                 "gttValue": gttValue 
             }
+            
             try:
-                res = requests.post(url, headers=self.headers, json=payload)
-                res.raise_for_status()
-                return res.json()
+                response = self._make_request("POST", url, headers=self.headers, json=payload)
+                return response.json()
             except requests.exceptions.HTTPError as e:
                 try:
-                    error_data = res.json()
-                    error_msg = error_data.get("message") or error_data.get("emsg") or res.text
+                    error_data = response.json()
+                    error_msg = error_data.get("message") or error_data.get("emsg") or response.text
                 except:
-                    error_msg = res.text
-                raise Exception(f"GTT Order Place Error {res.status_code}: {error_msg}")
+                    error_msg = response.text
+                raise Exception(f"GTT Order Place Error {response.status_code}: {error_msg}")
             except requests.exceptions.RequestException as e:
                 raise Exception(f"Network error: {str(e)}")
         
         def get_gtt_order_book(self):
+            """Get GTT order book"""
             url = f"{BASE_URL}/open-api/od/v1/orders/gtt/orderbook"
-            res = requests.get(url, headers=self.headers)
+            response = self._make_request("GET", url, headers=self.headers)
             
-            if res.status_code != 200:
-                raise Exception(f"GTT Order Book Error {res.status_code}: {res.text}")
+            if response.status_code != 200:
+                raise Exception(f"GTT Order Book Error {response.status_code}: {response.text}")
             
             try:
-                return res.json()
-            except Exception:
-                raise Exception(f"Non-JSON response: {res.text}")
+                return response.json()
+            except json.JSONDecodeError:
+                raise Exception(f"Non-JSON response: {response.text}")
         
         def get_modify_gtt_order(self, brokerOrderId: str, instrumentId: str, tradingSymbol: str, 
                                 exchange: str, orderType: str, product: str, validity: str, 
                                 quantity: int, price: float, orderComplexity: str, 
                                 gttType: str, gttValue: float):
-            
+            """Modify GTT order"""
             url = f"{BASE_URL}/open-api/od/v1/orders/gtt/modify"
             
             payload = {
@@ -344,47 +430,76 @@ def create_server():
             }
             
             try:
-                res = requests.post(url, headers=self.headers, json=payload)
-                res.raise_for_status()
-                return res.json()
-                
+                response = self._make_request("POST", url, headers=self.headers, json=payload)
+                return response.json()
             except requests.exceptions.HTTPError as e:
                 try:
-                    error_data = res.json()
-                    error_msg = error_data.get("message") or error_data.get("emsg") or res.text
+                    error_data = response.json()
+                    error_msg = error_data.get("message") or error_data.get("emsg") or response.text
                 except:
-                    error_msg = res.text
-                raise Exception(f"GTT Modify Order Error {res.status_code}: {error_msg}")
+                    error_msg = response.text
+                raise Exception(f"GTT Modify Order Error {response.status_code}: {error_msg}")
             except requests.exceptions.RequestException as e:
                 raise Exception(f"Network error: {str(e)}")
         
-        def get_cancel_gtt_order(self, brokerOrderId):
+        def get_cancel_gtt_order(self, brokerOrderId: str):
+            """Cancel GTT order"""
             url = f"{BASE_URL}/open-api/od/v1/orders/gtt/cancel"
             payload = {"brokerOrderId": brokerOrderId}
-            res = requests.post(url, headers=self.headers, json=payload)
+            response = self._make_request("POST", url, headers=self.headers, json=payload)
             
-            if res.status_code != 200:
-                raise Exception(f"GTT Cancel Order Error {res.status_code}: {res.text}")
+            if response.status_code != 200:
+                raise Exception(f"GTT Cancel Order Error {response.status_code}: {response.text}")
+            
             try:
-                return res.json()
-            except Exception:
-                raise Exception(f"Non-JSON response: {res.text}")
+                return response.json()
+            except json.JSONDecodeError:
+                raise Exception(f"Non-JSON response: {response.text}")
         
         def get_limits(self):
+            """Get account limits"""
             url = f"{BASE_URL}/open-api/od/v1/limits"
-            res = requests.get(url, headers=self.headers)
+            response = self._make_request("GET", url, headers=self.headers)
             
-            if res.status_code != 200:
-                raise Exception(f"Exit Bracket Order Error {res.status_code}: {res.text}")   
+            if response.status_code != 200:
+                raise Exception(f"Limits Error {response.status_code}: {response.text}")
+            
             try:
-                return res.json()
-            except Exception:
-                raise Exception(f"Non-JSON response: {res.text}")
+                return response.json()
+            except json.JSONDecodeError:
+                raise Exception(f"Non-JSON response: {response.text}")
+
+        def test_connection(self):
+            """Test connection to AliceBlue API"""
+            try:
+                # Test with a simple profile API call
+                profile_data = self.get_profile()
+                return {
+                    "status": "success",
+                    "message": "Successfully connected to AliceBlue API",
+                    "session_active": True,
+                    "user_id": self.user_id,
+                    "session_id": self.user_session
+                }
+            except Exception as e:
+                return {
+                    "status": "error",
+                    "message": f"Connection test failed: {str(e)}",
+                    "session_active": False
+                }
 
     def get_alice_client(ctx: Context):
         """Get or create AliceBlue client using session config"""
         if hasattr(ctx.session_state, 'alice_client'):
-            return ctx.session_state.alice_client
+            # Test if existing client is still valid
+            try:
+                client = ctx.session_state.alice_client
+                # Quick connection test
+                client.get_profile()
+                return client
+            except:
+                # Re-authenticate if client is invalid
+                pass
 
         # Access session-specific config through context
         config = ctx.session_config
@@ -399,8 +514,21 @@ def create_server():
 
     # Add tools
     @server.tool()
+    def test_connection(ctx: Context) -> dict:
+        """Test connection to AliceBlue API and verify authentication"""
+        try:
+            alice = get_alice_client(ctx)
+            return alice.test_connection()
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Connection test failed: {str(e)}",
+                "session_active": False
+            }
+
+    @server.tool()
     def check_and_authenticate(ctx: Context) -> dict:
-        """Check if AliceBlue session is active."""
+        """Check if AliceBlue session is active and re-authenticate if needed."""
         try:
             alice = get_alice_client(ctx)
             session_id = alice.get_session()
@@ -409,7 +537,7 @@ def create_server():
                 "authenticated": True,
                 "session_id": session_id,
                 "user_id": alice.user_id,
-                "message": "Session is active"
+                "message": "Session is active and valid"
             }
         except Exception as e:
             return {"status": "error", "authenticated": False, "message": str(e)}
@@ -685,7 +813,7 @@ def create_server():
 
     @server.tool()
     def get_cancel_gtt_order(ctx: Context, brokerOrderId: str) -> dict:
-        """Cancel Order"""
+        """Cancel GTT Order"""
         try:
             alice = get_alice_client(ctx)
             return{
@@ -699,7 +827,7 @@ def create_server():
 
     @server.tool()
     def get_limits(ctx: Context) -> dict:
-        """Get Limits"""
+        """Get Account Limits"""
         try:
             alice = get_alice_client(ctx)
             return{
