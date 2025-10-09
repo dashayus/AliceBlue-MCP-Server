@@ -856,4 +856,4 @@ def create_server():
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
-    return servernew
+    return server
