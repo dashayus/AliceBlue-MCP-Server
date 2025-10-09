@@ -7,9 +7,8 @@ import hashlib
 import time
 from typing import Optional, Union
 import json
-import asyncio
 
-# CORRECTED BASE URL - Use "ant" instead of "a3"final
+# CORRECTED BASE URL - Use "ant" instead of "a3"
 BASE_URL = "https://ant.aliceblueonline.com"
 
 # Configuration schema for session
@@ -33,7 +32,56 @@ def create_server():
             self.user_session = None
             self.headers = None
             self.last_authentication = None
-            self.authenticate()
+            # REMOVED: self.authenticate() - Don't authenticate during init
+
+        def _make_request(self, method, url, **kwargs):
+            """Generic request handler with retry logic"""
+            max_retries = 2
+            for attempt in range(max_retries):
+                try:
+                    # Ensure headers are set
+                    if self.headers is None:
+                        self.authenticate()
+                    
+                    # Add timeout if not specified
+                    if 'timeout' not in kwargs:
+                        kwargs['timeout'] = 10
+                    
+                    # Make the request
+                    response = requests.request(method, url, **kwargs)
+                    
+                    # Check if session expired
+                    if response.status_code == 401:
+                        if attempt < max_retries - 1:
+                            self.authenticate()  # Re-authenticate
+                            if 'headers' in kwargs:
+                                kwargs['headers'] = self.headers
+                            continue
+                        else:
+                            raise Exception("Session expired and re-authentication failed")
+                    
+                    return response
+                    
+                except requests.exceptions.ConnectionError:
+                    if attempt < max_retries - 1:
+                        time.sleep(1)
+                        continue
+                    else:
+                        raise Exception("Connection error: Unable to reach AliceBlue API")
+                except requests.exceptions.Timeout:
+                    if attempt < max_retries - 1:
+                        time.sleep(1)
+                        continue
+                    else:
+                        raise Exception("Request timeout: AliceBlue API is not responding")
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        time.sleep(1)
+                        continue
+                    else:
+                        raise e
+            
+            raise Exception("Max retries exceeded")
 
         def authenticate(self):
             """Authenticate with AliceBlue API"""
@@ -47,7 +95,7 @@ def create_server():
                 payload = {"checkSum": checksum} 
 
                 # Use shorter timeout for authentication
-                response = requests.post(url, json=payload)
+                response = requests.post(url, json=payload, timeout=10)
                 
                 # Handle API response
                 if response.status_code != 200:
@@ -76,7 +124,6 @@ def create_server():
             except Exception as e:
                 raise Exception(f"Authentication error: {str(e)}")
 
-        
         def get_session(self):
             """Get current session ID"""
             return self.user_session
@@ -464,8 +511,9 @@ def create_server():
             # Test if existing client is still valid
             try:
                 client = ctx.session_state.alice_client
-                # Quick connection test
-                client.get_profile()
+                # Quick connection test - don't authenticate here
+                if client.headers is not None:
+                    client.get_profile()
                 return client
             except:
                 # Re-authenticate if client is invalid
@@ -479,8 +527,7 @@ def create_server():
             auth_code=config.auth_code, 
             api_secret=config.api_secret
         )
-        # Authenticate immediately
-        alice.authenticate()
+        # DON'T authenticate immediately - let it happen on first request
         ctx.session_state.alice_client = alice
         return alice
 
@@ -503,6 +550,8 @@ def create_server():
         """Check if AliceBlue session is active and re-authenticate if needed."""
         try:
             alice = get_alice_client(ctx)
+            # Force authentication
+            alice.authenticate()
             session_id = alice.get_session()
             return {
                 "status": "success",
