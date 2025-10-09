@@ -8,7 +8,8 @@ import time
 from typing import Optional, Union
 import json
 
-BASE_URL = "https://a3.aliceblueonline.com"
+# CORRECTED BASE URL - Use "ant" instead of "a3"
+BASE_URL = "https://ant.aliceblueonline.com"
 
 # Configuration schema for session
 class ConfigSchema(BaseModel):
@@ -79,11 +80,11 @@ def create_server():
         def authenticate(self):
             """Authenticate with AliceBlue API"""
             try:
-                # Prepare checksum
+                # Prepare checksum - using the exact format from documentation
                 raw_string = f"{self.user_id}{self.auth_code}{self.api_secret}"
                 checksum = hashlib.sha256(raw_string.encode()).hexdigest()
 
-                # API request
+                # API request - using correct endpoint
                 url = f"{BASE_URL}/open-api/od/v1/vendor/getUserDetails"
                 payload = {"checkSum": checksum} 
 
@@ -512,7 +513,7 @@ def create_server():
         ctx.session_state.alice_client = alice
         return alice
 
-    # Add tools
+    # Add tools (all your existing tools remain the same)
     @server.tool()
     def test_connection(ctx: Context) -> dict:
         """Test connection to AliceBlue API and verify authentication"""
@@ -525,6 +526,8 @@ def create_server():
                 "message": f"Connection test failed: {str(e)}",
                 "session_active": False
             }
+
+    # ... (all your other tools remain exactly the same)
 
     @server.tool()
     def check_and_authenticate(ctx: Context) -> dict:
