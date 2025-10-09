@@ -1,22 +1,21 @@
-[build-system]
-requires = ["uv_build>=0.8.15,<0.9.0"]
-build-backend = "uv_build"
-
 [project]
-name = "aliceblue_server"
+name = "aliceblue-mcp"
 version = "0.1.0"
-description = "My MCP server"
+description = "AliceBlue Trading MCP Server"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = [
-    "mcp>=1.15.0",
-    "smithery>=0.4.2",
+    "mcp",
+    "fastmcp",
+    "smithery",
+    "requests",
 ]
 
-[project.scripts]
-dev = "smithery.cli.dev:main"
-playground = "smithery.cli.playground:main"
-
-# Points to your server function
-[tool.smithery] 
+[tool.smithery]
 server = "aliceblue_server.server:create_server"
+
+[tool.smithery.dev]
+command = "uvicorn aliceblue_server.server:create_server --port 8000 --reload"
+
+[tool.smithery.playground]
+command = "uvicorn aliceblue_server.server:create_server --port 8000"
