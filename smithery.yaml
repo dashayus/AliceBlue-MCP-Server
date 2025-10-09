@@ -1,1 +1,30 @@
-runtime: "python"
+name: aliceblue-trading-mcp
+description: AliceBlue Trading Integration - Manage your stocks and trading orders
+version: "1.0.0"
+
+runtime: python
+
+startCommand:
+  type: stdio
+  command: python
+  args:
+    - -m
+    - mcp
+    - run
+    - aliceblue_server.server:create_server
+
+configuration:
+  fields:
+    - name: user_id
+      description: "Your AliceBlue User ID"
+      type: string
+      required: true
+    - name: auth_code
+      description: "Your AliceBlue Auth Code"
+      type: string
+      required: true
+    - name: api_secret
+      description: "Your AliceBlue API Secret"
+      type: string
+      required: true
+      secret: true

@@ -1,26 +1,23 @@
 [build-system]
-requires = ["uv_build>=0.8.15,<0.9.0"]
-build-backend = "uv_build"
+requires = ["setuptools>=45.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "financial-server"
+name = "aliceblue-mcp"
 version = "0.1.0"
-description = "Financial Research MCP Server with comprehensive stock analysis tools"
+description = "AliceBlue Trading MCP Server"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
-    "bs4>=0.0.2",
-    "fastmcp>=2.12.4",
-    "mcp>=1.15.0",
-    "smithery>=0.4.2",
-    "yfinance>=0.2.66",
-    "requests>=2.31.0",
-    "beautifulsoup4>=4.12.0",
-    "langchain-community>=0.0.20",
-    "pandas>=2.0.0",
-    "python-dotenv>=1.0.0",
+    "mcp>=1.0.0",
+    "fastmcp>=0.1.0", 
+    "smithery>=0.1.0",
+    "requests>=2.25.0",
+    "pydantic>=2.0.0",
 ]
+
 [project.scripts]
-dev = "smithery.cli.dev:main"
-playground = "smithery.cli.playground:main"
-[tool.smithery] 
-server = "financial_server.server:create_server"
+aliceblue-mcp = "aliceblue_server.server:create_server"
+
+[tool.smithery]
+server = "aliceblue_server.server:create_server"

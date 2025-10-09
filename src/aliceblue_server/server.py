@@ -1,171 +1,178 @@
-# src/fin-research-server/server.py
-import os
-import yfinance as yf
-import requests
-from bs4 import BeautifulSoup
+from pydantic import BaseModel, Field
 from mcp.server.fastmcp import Context, FastMCP
 from smithery.decorators import smithery
-from pydantic import BaseModel, Field
-import tempfile
-from langchain_community.document_loaders import BSHTMLLoader
+import requests
+import hashlib
 
+BASE_URL = "https://a3.aliceblueonline.com"
+
+# Configuration schema for session
 class ConfigSchema(BaseModel):
-    user_agent: str = Field("Prompt Circle Labs info@promptcircle.com", description="User agent for SEC requests")
+    user_id: str = Field(description="Your AliceBlue User ID")
+    auth_code: str = Field(description="Your AliceBlue Auth Code") 
+    api_secret: str = Field(description="Your AliceBlue API Secret")
 
-@smithery.server(config_schema=ConfigSchema) 
-def create_server(): 
-    """Create and return a FastMCP server instance with financial tools."""
+@smithery.server(config_schema=ConfigSchema)
+def create_server():
+    """Create and configure the AliceBlue MCP server."""
     
-    server = FastMCP(name="Financial Research Server")
+    # Create your FastMCP server as usual
+    server = FastMCP("AliceBlue Trading")
 
-    @server.tool()
-    def get_stock_summary(ticker: str, ctx: Context) -> str:
-        """Get a basic stock summary using Yahoo Finance."""
-        try:
-            stock = yf.Ticker(ticker)
-            hist = stock.history(period="5d")
+    class AliceBlue:
+        def __init__(self, user_id: str, auth_code: str, api_secret: str):
+            self.user_id = user_id
+            self.auth_code = auth_code
+            self.api_secret = api_secret
+            self.user_session = None
+            self.headers = None
+            self.authenticate()
 
-            if hist.empty:
-                return f"No recent data found for {ticker.upper()}."
+        def authenticate(self):
+            raw_string = f"{self.user_id}{self.auth_code}{self.api_secret}"
+            checksum = hashlib.sha256(raw_string.encode()).hexdigest()
 
-            latest = hist.iloc[-1]
-            summary = (
-                f"{ticker.upper()} Summary:\n"
-                f"Close Price: ${latest['Close']:.2f}\n"
-                f"Volume: {int(latest['Volume'])}\n"
-                f"Date: {latest.name.date()}\n"
-            )
+            url = f"{BASE_URL}/open-api/od/v1/vendor/getUserDetails"
+            payload = {"checkSum": checksum} 
 
-            return summary
-        except Exception as e:
-            return f"Error retrieving stock data for {ticker}: {str(e)}"
+            res = requests.post(url, json=payload)
 
-    @server.tool()
-    def get_sec_filings(ticker: str, ctx: Context) -> list:
-        """Get recent SEC filings for a ticker."""
-        try:
-            stock = yf.Ticker(ticker)
-            filings = stock.get_sec_filings()
-            return filings.to_dict("records") if hasattr(filings, 'to_dict') else list(filings)
-        except Exception as e:
-            return [{"error": str(e)}]
-
-    @server.tool()
-    def get_analyst_targets(ticker: str, ctx: Context) -> dict:
-        """Get analyst price targets for a ticker."""
-        try:
-            stock = yf.Ticker(ticker)
-            return stock.analyst_price_targets
-        except Exception as e:
-            return {"error": str(e)}
-
-    @server.tool()
-    def get_recommendations(ticker: str, ctx: Context) -> list:
-        """Get analyst recommendations for a ticker."""
-        try:
-            stock = yf.Ticker(ticker)
-            recs = stock.recommendations
-            return recs.to_dict("records") if hasattr(recs, 'to_dict') else list(recs)
-        except Exception as e:
-            return [{"error": str(e)}]
-
-    @server.tool()
-    def get_dividends(ticker: str, ctx: Context) -> dict:
-        """Get dividend history for a ticker."""
-        try:
-            stock = yf.Ticker(ticker)
-            divs = stock.dividends
-            return divs.to_dict() if hasattr(divs, 'to_dict') else dict(divs)
-        except Exception as e:
-            return {"error": str(e)}
-
-    @server.tool()
-    def get_splits(ticker: str, ctx: Context) -> dict:
-        """Get stock split history for a ticker."""
-        try:
-            stock = yf.Ticker(ticker)
-            splits = stock.splits
-            return splits.to_dict() if hasattr(splits, 'to_dict') else dict(splits)
-        except Exception as e:
-            return {"error": str(e)}
-
-    @server.tool()
-    def get_institutional_holders(ticker: str, ctx: Context) -> list:
-        """Get institutional holders for a ticker."""
-        try:
-            stock = yf.Ticker(ticker)
-            holders = stock.institutional_holders
-            return holders.to_dict("records") if hasattr(holders, 'to_dict') else list(holders)
-        except Exception as e:
-            return [{"error": str(e)}]
-
-    @server.tool()
-    def get_insider_transactions(ticker: str, ctx: Context) -> list:
-        """Get insider transactions for a ticker."""
-        try:
-            stock = yf.Ticker(ticker)
-            insiders = stock.insider_transactions
-            return insiders.to_dict("records") if hasattr(insiders, 'to_dict') else list(insiders)
-        except Exception as e:
-            return [{"error": str(e)}]
-
-    @server.tool()
-    def get_sector_info(ticker: str, ctx: Context) -> dict:
-        """Get sector and industry information for a ticker."""
-        try:
-            stock = yf.Ticker(ticker)
-            info = stock.info
-            sector = info.get('sector')
-            industry = info.get('industry')
-            return {"sector": sector, "industry": industry}
-        except Exception as e:
-            return {"error": str(e)}
-
-    @server.tool()
-    def get_financial_statements(ticker: str, ctx: Context) -> dict:
-        """Get balance sheet, income statement, and cashflow for a ticker."""
-        try:
-            stock = yf.Ticker(ticker)
-            return {
-                "balance_sheet": stock.balance_sheet.to_dict() if hasattr(stock.balance_sheet, 'to_dict') else dict(stock.balance_sheet),
-                "income_statement": stock.income_stmt.to_dict() if hasattr(stock.income_stmt, 'to_dict') else dict(stock.income_stmt),
-                "cashflow": stock.cashflow.to_dict() if hasattr(stock.cashflow, 'to_dict') else dict(stock.cashflow)
-            }
-        except Exception as e:
-            return {"error": str(e)}
-
-    @server.tool()
-    def summarize_filing(url: str, ctx: Context) -> str:
-        """Fetches an SEC filing from a URL, extracts main content using BSHTMLLoader, and summarizes the key points."""
-        try:
-            session_config = ctx.session_config
-            headers = {
-                "User-Agent": session_config.user_agent,
-                "Accept-Encoding": "gzip, deflate",
-                "Host": "www.sec.gov"
-            }
-            
-            res = requests.get(url, headers=headers)
             if res.status_code != 200:
-                return f"Failed to fetch filing. HTTP status: {res.status_code}"
-            
-            # Write to a temporary file
-            with tempfile.NamedTemporaryFile(delete=True, suffix=".htm") as tmp:
-                tmp.write(res.content)
-                tmp.flush()
-                loader = BSHTMLLoader(tmp.name)
-                docs = loader.load()
-            
-            if not docs:
-                return "No substantial content found in the filing."
-            
-            # Get the main text content
-            content = docs[0].page_content
-            # Heuristic: summarize the first 1000 characters or first 10 sentences
-            sentences = content.split('. ')
-            summary = '. '.join(sentences[:10]) if len(sentences) > 10 else content[:1000]
-            return f"Summary of SEC filing at {url}:\n\n{summary}\n\n(For a more detailed summary, consider using an LLM or advanced summarizer.)"
+                raise Exception(f"API Error: {res.text}")
+
+            data = res.json()
+            if data.get("stat") == "Ok":
+                self.user_session = data["userSession"]
+                self.headers = {"Authorization": f"Bearer {self.user_session}"}
+            else:
+                raise Exception(f"Authentication failed: {data}")
+
+        def get_session(self):
+            return self.user_session
+        
+        def get_profile(self):
+            url = f"{BASE_URL}/open-api/od/v1/profile"
+            res = requests.get(url, headers=self.headers)
+            return self._handle_response(res, "Profile")
+        
+        def get_holdings(self):
+            url = f"{BASE_URL}/open-api/od/v1/holdings/CNC"
+            res = requests.get(url, headers=self.headers)
+            return self._handle_response(res, "Holdings")
+        
+        def get_positions(self):
+            url = f"{BASE_URL}/open-api/od/v1/positions"
+            res = requests.get(url, headers=self.headers)
+            return self._handle_response(res, "Positions")
+        
+        def get_order_book(self):
+            url = f"{BASE_URL}/open-api/od/v1/orders/book"
+            res = requests.get(url, headers=self.headers)
+            return self._handle_response(res, "Order Book")
+        
+        def get_trade_book(self):
+            url = f"{BASE_URL}/open-api/od/v1/orders/trades"
+            res = requests.get(url, headers=self.headers)
+            return self._handle_response(res, "Trade Book")
+        
+        def get_limits(self):
+            url = f"{BASE_URL}/open-api/od/v1/limits"
+            res = requests.get(url, headers=self.headers)
+            return self._handle_response(res, "Limits")
+
+        def _handle_response(self, response, operation_name):
+            if response.status_code != 200:
+                raise Exception(f"{operation_name} Error {response.status_code}: {response.text}")
+            try:
+                return response.json()
+            except Exception:
+                raise Exception(f"Non-JSON response: {response.text}")
+
+    def get_alice_client(ctx: Context):
+        """Get or create AliceBlue client using session config"""
+        if hasattr(ctx.session_state, 'alice_client'):
+            return ctx.session_state.alice_client
+
+        # Access session-specific config through context
+        config = ctx.session_config
+        
+        alice = AliceBlue(
+            user_id=config.user_id,
+            auth_code=config.auth_code, 
+            api_secret=config.api_secret
+        )
+        ctx.session_state.alice_client = alice
+        return alice
+
+    # Add tools
+    @server.tool()
+    def check_auth(ctx: Context) -> str:
+        """Check authentication status"""
+        try:
+            alice = get_alice_client(ctx)
+            session_id = alice.get_session()
+            return f"✅ Authentication successful! Session ID: {session_id}"
         except Exception as e:
-            return f"Error summarizing SEC filing from {url}: {str(e)}"
+            return f"❌ Authentication failed: {str(e)}"
+
+    @server.tool()
+    def get_profile(ctx: Context) -> str:
+        """Get user profile details"""
+        try:
+            alice = get_alice_client(ctx)
+            data = alice.get_profile()
+            return f"Profile data: {data}"
+        except Exception as e:
+            return f"Error getting profile: {str(e)}"
+
+    @server.tool()
+    def get_holdings(ctx: Context) -> str:
+        """Get current stock holdings"""
+        try:
+            alice = get_alice_client(ctx)
+            data = alice.get_holdings()
+            return f"Holdings data: {data}"
+        except Exception as e:
+            return f"Error getting holdings: {str(e)}"
+
+    @server.tool()
+    def get_positions(ctx: Context) -> str:
+        """Get current trading positions"""
+        try:
+            alice = get_alice_client(ctx)
+            data = alice.get_positions()
+            return f"Positions data: {data}"
+        except Exception as e:
+            return f"Error getting positions: {str(e)}"
+
+    @server.tool()
+    def get_order_book(ctx: Context) -> str:
+        """Get order book"""
+        try:
+            alice = get_alice_client(ctx)
+            data = alice.get_order_book()
+            return f"Order book: {data}"
+        except Exception as e:
+            return f"Error getting order book: {str(e)}"
+
+    @server.tool()
+    def get_trade_book(ctx: Context) -> str:
+        """Get trade book"""
+        try:
+            alice = get_alice_client(ctx)
+            data = alice.get_trade_book()
+            return f"Trade book: {data}"
+        except Exception as e:
+            return f"Error getting trade book: {str(e)}"
+
+    @server.tool()
+    def get_limits(ctx: Context) -> str:
+        """Get account limits and margins"""
+        try:
+            alice = get_alice_client(ctx)
+            data = alice.get_limits()
+            return f"Account limits: {data}"
+        except Exception as e:
+            return f"Error getting limits: {str(e)}"
 
     return server
