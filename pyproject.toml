@@ -1,21 +1,26 @@
+[build-system]
+requires = ["uv_build>=0.8.15,<0.9.0"]
+build-backend = "uv_build"
 [project]
-name = "aliceblue-mcp"
+name = "financial-server"
 version = "0.1.0"
-description = "AliceBlue Trading MCP Server"
+description = "Financial Research MCP Server with comprehensive stock analysis tools"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
-    "mcp",
-    "fastmcp",
-    "smithery",
-    "requests",
+    "bs4>=0.0.2",
+    "fastmcp>=2.12.4",
+    "mcp>=1.15.0",
+    "smithery>=0.4.2",
+    "yfinance>=0.2.66",
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "langchain-community>=0.0.20",
+    "pandas>=2.0.0",
+    "python-dotenv>=1.0.0",
 ]
-
-[tool.smithery]
-server = "aliceblue_server.server:create_server"
-
-[tool.smithery.dev]
-command = "uvicorn aliceblue_server.server:create_server --port 8000 --reload"
-
-[tool.smithery.playground]
-command = "uvicorn aliceblue_server.server:create_server --port 8000"
+[project.scripts]
+dev = "smithery.cli.dev:main"
+playground = "smithery.cli.playground:main"
+[tool.smithery] 
+server = "financial_server.server:create_server"
