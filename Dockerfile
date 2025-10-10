@@ -1,27 +1,16 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements first for better caching
-COPY pyproject.toml ./
-
-# Install Python dependencies including Ant-A3 SDK
+# Copy requirements and install dependencies
+COPY pyproject.toml .
 RUN pip install --no-cache-dir .
 
-# Copy the application code
-COPY server.py ./
+# Copy source code
+COPY src/ ./src/
 
-# Create a non-root user
-RUN useradd --create-home --shell /bin/bash mcp
-USER mcp
+# Set Python path
+ENV PYTHONPATH=/app/src
 
-# Expose the port
-EXPOSE 8000
-
-# Run the server
-CMD ["python", "server.py"]
+# Run using mcp command
+CMD ["python", "-m", "mcp", "run", "aliceblue_server.server:create_server"]

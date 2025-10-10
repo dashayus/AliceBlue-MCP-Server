@@ -1,63 +1,30 @@
-version: 1
-name: aliceblue-mcp-server
-description: MCP server for AliceBlue trading platform using official Ant-A3 SDK
-author: Your Name
-language: python
-python_version: "3.11"
+name: aliceblue-trading-mcp
+description: AliceBlue Trading Integration - Manage your stocks and trading orders
+version: "1.0.0"
 
-# MCP server configuration
-mcp:
-  command: ["python", "server.py"]
-  env:
-    - name: PYTHONUNBUFFERED
-      value: "1"
-  
-  # Configuration schema
-  config_schema:
-    type: object
-    properties:
-      user_id:
-        type: string
-        description: "Your AliceBlue User ID"
-      auth_code:
-        type: string
-        description: "Your AliceBlue Auth Code"
-      secret_key:
-        type: string
-        description: "Your AliceBlue Secret Key"
-    required:
-      - user_id
-      - auth_code
-      - secret_key
+runtime: python
 
-# Build configuration
-build:
-  base_image: python:3.11-slim
-  commands:
-    - pip install --no-cache-dir .
+startCommand:
+  type: stdio
+  command: python
+  args:
+    - -m
+    - mcp
+    - run
+    - aliceblue_server.server:create_server
 
-# Dependencies
-dependencies:
-  - mcp>=1.0.0
-  - fastmcp>=0.1.0
-  - pydantic>=2.0.0
-  - smithery>=0.1.0
-  - Ant-A3-tradehub-sdk-testing>=1.0.1
-
-# Health check
-health_check:
-  command: ["python", "-c", "import sys; sys.exit(0)"]
-  interval: 30s
-  timeout: 10s
-  retries: 3
-
-# Resources
-resources:
-  cpu: 0.5
-  memory: 512Mi
-
-# Metadata
-metadata:
-  category: finance
-  tags: ["trading", "aliceblue", "india", "stocks", "ant-a3", "sdk"]
-  repository: "https://github.com/dashayus/AliceBlue-MCP-Server"
+configuration:
+  fields:
+    - name: user_id
+      description: "Your AliceBlue User ID"
+      type: string
+      required: true
+    - name: auth_code
+      description: "Your AliceBlue Auth Code"
+      type: string
+      required: true
+    - name: api_secret
+      description: "Your AliceBlue API Secret"
+      type: string
+      required: true
+      secret: true
