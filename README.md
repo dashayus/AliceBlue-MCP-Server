@@ -1,5 +1,7 @@
 # AliceBlue Trading MCP Server
 
+[![smithery badge](https://smithery.ai/badge/@dashayus/aliceblue-mcp-server)](https://smithery.ai/server/@dashayus/aliceblue-mcp-server)
+
 Interact with your AliceBlue trading account directly through Claude AI. Manage your stocks, mutual funds, and trading orders seamlessly.
 
 ## 🚀 Features
@@ -32,3 +34,12 @@ git clone https://github.com/yourusername/aliceblue-mcp
 cd aliceblue-mcp
 pip install -r requirements.txt
 python server.py
+```
+
+### Installing via Smithery
+
+To install AliceBlue automatically via [Smithery](https://smithery.ai/server/@dashayus/aliceblue-mcp-server):
+
+```bash
+npx -y @smithery/cli install @dashayus/aliceblue-mcp-server
+```
